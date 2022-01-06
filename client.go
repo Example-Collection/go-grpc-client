@@ -6,6 +6,7 @@ import (
 	pb "github.com/Example-Collection/go-grpc-client/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"io"
 	"log"
 	"time"
 )
@@ -25,6 +26,26 @@ func printResponseAfterCallingGetPersonInformation(client pb.PersonServiceClient
 	log.Printf("Response: Person(name: %v, message: %v", response.Name, response.Message)
 }
 
+func printResponseAfterCallingListPersons(client pb.PersonServiceClient, req *pb.ListPersonRequest) {
+	log.Printf("Sending request to get all persons with email: %v", req.Email)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
+	defer cancel()
+	stream, err := client.ListPersons(ctx, req)
+	if err != nil {
+		log.Fatalf("%v.ListPersons(_) = _, %v", client, err)
+	}
+	for {
+		person, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("%v.ListPersons(_) = _, %v", client, err)
+		}
+		log.Printf("Response: Person(name: %v, message: %v)", person.Name, person.Age)
+	}
+}
+
 func main() {
 	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -34,6 +55,7 @@ func main() {
 	client := pb.NewPersonServiceClient(conn)
 
 	// Unary RPC
+	log.Println("Unary RPC!!")
 	personRequest := &pb.PersonRequest{
 		Name:     "Sangwoo",
 		Age:      25,
@@ -41,4 +63,9 @@ func main() {
 		Password: "sangwooPassword",
 	}
 	printResponseAfterCallingGetPersonInformation(client, personRequest)
+
+	// Server Streaming RPC
+	log.Println("Server Streaming RPC!!")
+	listPersonRequest := &pb.ListPersonRequest{Email: "robbyra@gmail.com"}
+	printResponseAfterCallingListPersons(client, listPersonRequest)
 }
