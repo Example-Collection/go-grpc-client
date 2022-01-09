@@ -46,6 +46,45 @@ func printResponseAfterCallingListPersons(client pb.PersonServiceClient, req *pb
 	}
 }
 
+func savePersons(client pb.PersonServiceClient) {
+	requests := []*pb.PersonRequest{
+		{
+			Email:    "email1@test.com",
+			Age:      1,
+			Name:     "name1",
+			Password: "password1",
+		},
+		{
+			Email:    "email2@test.com",
+			Age:      2,
+			Name:     "name2",
+			Password: "password2",
+		},
+		{
+			Email:    "email3@test.com",
+			Age:      3,
+			Name:     "name3",
+			Password: "password3",
+		},
+	}
+
+	stream, err := client.SavePersons(context.Background())
+	if err != nil {
+		log.Fatalf("%v.SavePersons(_) = _, %v", client, err)
+	}
+	for _, req := range requests {
+		time.Sleep(time.Second)
+		if err := stream.Send(req); err != nil {
+			log.Fatalf("%v.Send(%v) = %v", stream, req, err)
+		}
+	}
+	response, err := stream.CloseAndRecv()
+	if err != nil {
+		log.Fatalf("%v.CloseAndRecv() got error %v, want %v", stream, err, nil)
+	}
+	log.Printf("SavePersons() response: %v\n", response)
+}
+
 func main() {
 	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -68,4 +107,7 @@ func main() {
 	log.Println("Server Streaming RPC!!")
 	listPersonRequest := &pb.ListPersonRequest{Email: "robbyra@gmail.com"}
 	printResponseAfterCallingListPersons(client, listPersonRequest)
+
+	// Client Streaming RPC
+	savePersons(client)
 }
