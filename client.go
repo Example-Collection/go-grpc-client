@@ -85,6 +85,63 @@ func savePersons(client pb.PersonServiceClient) {
 	log.Printf("SavePersons() response: %v\n", response)
 }
 
+func printResponseInAskAndGetPersons(client pb.PersonServiceClient) {
+	requests := []*pb.PersonRequest{
+		{
+			Email:    "email1@test.com",
+			Age:      1,
+			Name:     "name1",
+			Password: "password1",
+		},
+		{
+			Email:    "email2@test.com",
+			Age:      2,
+			Name:     "name2",
+			Password: "password2",
+		},
+		{
+			Email:    "email3@test.com",
+			Age:      3,
+			Name:     "name3",
+			Password: "password3",
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	stream, err := client.AskAndGetPersons(ctx)
+	if err != nil {
+		log.Fatalf("%v.AskAndGetPersons(_) = _, %v", client, err)
+	}
+
+	waitChannel := make(chan bool)
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				close(waitChannel)
+				//waitChannel <- true 로 해도 된다.
+				return
+			}
+			if err != nil {
+				log.Fatalf("Failed to receive PersonResponse : %v", err)
+			}
+			log.Printf("PersonResponse(email: %v, name: %v, age: %d) arrived.\n", res.Email, res.Name, res.Age)
+		}
+	}()
+
+	for _, req := range requests {
+		time.Sleep(time.Second)
+		log.Printf("PersonRequest(email: %v, name: %v, age: %d) sent.", req.Email, req.Name, req.Age)
+		if err := stream.Send(req); err != nil {
+			log.Fatalf("Failed to send PersonRequest: %v", err)
+		}
+	}
+
+	stream.CloseSend()
+	<-waitChannel
+}
+
 func main() {
 	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -110,4 +167,7 @@ func main() {
 
 	// Client Streaming RPC
 	savePersons(client)
+
+	// Bidirectional Streaming RPC
+	printResponseInAskAndGetPersons(client)
 }
