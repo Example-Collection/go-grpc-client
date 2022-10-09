@@ -120,7 +120,6 @@ func printResponseInAskAndGetPersons(client pb.PersonServiceClient) {
 			res, err := stream.Recv()
 			if err == io.EOF {
 				close(waitChannel)
-				//waitChannel <- true 로 해도 된다.
 				return
 			}
 			if err != nil {
